@@ -1,4 +1,4 @@
-<?php namespace GeneaLabs\LaravelModelCaching\Tests\Unit;
+<?php namespace GeneaLabs\LaravelModelCaching\Tests\Integration;
 
 use GeneaLabs\LaravelModelCaching\Tests\Fixtures\Author;
 use GeneaLabs\LaravelModelCaching\Tests\Fixtures\Book;
@@ -11,43 +11,16 @@ use GeneaLabs\LaravelModelCaching\Tests\Fixtures\UncachedProfile;
 use GeneaLabs\LaravelModelCaching\Tests\Fixtures\UncachedPublisher;
 use GeneaLabs\LaravelModelCaching\Tests\Fixtures\UncachedStore;
 use GeneaLabs\LaravelModelCaching\Tests\Fixtures\Http\Resources\Author as AuthorResource;
-use GeneaLabs\LaravelModelCaching\Tests\UnitTestCase;
+use GeneaLabs\LaravelModelCaching\Tests\IntegrationTestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 /**
 * @SuppressWarnings(PHPMD.TooManyPublicMethods)
 * @SuppressWarnings(PHPMD.TooManyMethods)
  */
-class DisabledCachedBuilderTest extends UnitTestCase
+class DisabledCachedBuilderTest extends IntegrationTestCase
 {
     use RefreshDatabase;
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        cache()->flush();
-        $publishers = factory(Publisher::class, 10)->create();
-        factory(Author::class, 10)->create()
-            ->each(function ($author) use ($publishers) {
-                factory(Book::class, random_int(2, 10))->make()
-                    ->each(function ($book) use ($author, $publishers) {
-                        $book->author()->associate($author);
-                        $book->publisher()->associate($publishers[rand(0, 9)]);
-                        $book->save();
-                    });
-                factory(Profile::class)->make([
-                    'author_id' => $author->id,
-                ]);
-            });
-
-        $bookIds = (new Book)->all()->pluck('id');
-        factory(Store::class, 10)->create()
-            ->each(function ($store) use ($bookIds) {
-                $store->books()->sync(rand($bookIds->min(), $bookIds->max()));
-            });
-        cache()->flush();
-    }
 
     public function testAvgModelResultsIsNotCached()
     {
@@ -55,14 +28,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->avg('id');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-avg_id';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-avg_id');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResult = (new UncachedAuthor)
@@ -98,7 +71,10 @@ class DisabledCachedBuilderTest extends UnitTestCase
                 }
 
                 $cachedChunks['authors']->push($chunk);
-                $cachedChunks['keys']->push("genealabslaravelmodelcachingtestsfixturesauthor-books-profile_orderBy_authors.id_asc{$offset}-limit_3");
+                $cachedChunks['keys']->push(sha1(
+                    "genealabslaravelmodelcachingtestsfixturesauthor-books-pr" .
+                    "ofile_orderBy_authors.id_asc{$offset}-limit_3"
+                ));
             });
 
         $liveResults = (new UncachedAuthor)->with('books', 'profile')
@@ -108,7 +84,8 @@ class DisabledCachedBuilderTest extends UnitTestCase
 
         for ($index = 0; $index < $cachedChunks['authors']->count(); $index++) {
             $key = $cachedChunks['keys'][$index];
-            $cachedResults = cache()->tags($tags)
+            $cachedResults = $this->cache()
+                ->tags($tags)
                 ->get($key);
 
             $this->assertNull($cachedResults);
@@ -122,14 +99,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->count();
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-count';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-count');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResults = cache()
+        $cachedResults = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResults = (new UncachedAuthor)
@@ -146,14 +123,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->cursor();
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-cursor';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-cursor');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResults = cache()
+        $cachedResults = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResults = collect(
@@ -162,7 +139,7 @@ class DisabledCachedBuilderTest extends UnitTestCase
                 ->cursor()
         );
 
-        $this->assertEmpty($liveResults->diffAssoc($authors));
+        $this->assertEmpty($liveResults->diffKeys($authors));
         $this->assertNull($cachedResults);
     }
 
@@ -172,12 +149,12 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books')
             ->disableCache()
             ->find(1);
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor_1';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor_1');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResult = (new UncachedAuthor)
@@ -193,21 +170,21 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->get();
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResults = cache()
+        $cachedResults = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResults = (new UncachedAuthor)
             ->with('books', 'profile')
             ->get();
 
-        $this->assertEmpty($liveResults->diffAssoc($authors));
+        $this->assertEmpty($liveResults->diffKeys($authors));
         $this->assertNull($cachedResults);
     }
 
@@ -217,14 +194,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->max('id');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-max_id';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-max_id');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResult = (new UncachedAuthor)
@@ -241,14 +218,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->min('id');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-min_id';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-min_id');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResult = (new UncachedAuthor)
@@ -265,21 +242,21 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->pluck('name', 'id');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor_name-books-profile-pluck_name_id';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor_name-books-profile-pluck_name_id');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResults = cache()
+        $cachedResults = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResults = (new UncachedAuthor)
             ->with('books', 'profile')
             ->pluck('name', 'id');
 
-        $this->assertEmpty($liveResults->diffAssoc($authors));
+        $this->assertEmpty($liveResults->diffKeys($authors));
         $this->assertNull($cachedResults);
     }
 
@@ -289,14 +266,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->sum('id');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor-books-profile-sum_id';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor-books-profile-sum_id');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
         $liveResult = (new UncachedAuthor)
@@ -313,14 +290,14 @@ class DisabledCachedBuilderTest extends UnitTestCase
             ->with('books', 'profile')
             ->disableCache()
             ->value('name');
-        $key = 'genealabslaravelmodelcachingtestsfixturesauthor_name-books-profile-first';
+        $key = sha1('genealabslaravelmodelcachingtestsfixturesauthor_name-books-profile-first');
         $tags = [
             'genealabslaravelmodelcachingtestsfixturesauthor',
             'genealabslaravelmodelcachingtestsfixturesbook',
             'genealabslaravelmodelcachingtestsfixturesprofile',
         ];
 
-        $cachedResult = cache()
+        $cachedResult = $this->cache()
             ->tags($tags)
             ->get($key);
 
@@ -330,5 +307,26 @@ class DisabledCachedBuilderTest extends UnitTestCase
 
         $this->assertEquals($author, $liveResult);
         $this->assertNull($cachedResult);
+    }
+
+    public function testPaginationIsCached()
+    {
+        $authors = (new Author)
+            ->disableCache()
+            ->paginate(3);
+
+        $key = sha1('genealabs:laravel-model-caching:genealabslaravelmodelcachingtestsfixturesauthor-paginate_by_3_page_1');
+        $tags = [
+            'genealabs:laravel-model-caching:genealabslaravelmodelcachingtestsfixturesauthor',
+        ];
+
+        $cachedResults = $this->cache()
+            ->tags($tags)
+            ->get($key)['value'];
+        $liveResults = (new UncachedAuthor)
+            ->paginate(3);
+
+        $this->assertNull($cachedResults);
+        $this->assertEquals($liveResults->toArray(), $authors->toArray());
     }
 }
