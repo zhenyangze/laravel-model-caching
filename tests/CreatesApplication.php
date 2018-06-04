@@ -36,7 +36,6 @@ trait CreatesApplication
         $this->cache = cache()
             ->store(config('laravel-model-caching.store'));
 
-        $this->cache()->flush();
         $publishers = factory(Publisher::class, 10)->create();
         factory(Author::class, 10)->create()
             ->each(function ($author) use ($publishers) {

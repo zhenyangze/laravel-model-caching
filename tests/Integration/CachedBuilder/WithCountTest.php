@@ -17,6 +17,7 @@ use GeneaLabs\LaravelModelCaching\Tests\IntegrationTestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 
+/** @group test */
 class WithCountTest extends IntegrationTestCase
 {
     public function testWithCountUpdatesAfterRecordIsAdded()

@@ -37,11 +37,6 @@ trait ModelCaching
             $instance->checkCooldownAndFlushAfterPersiting($instance);
         });
 
-        // TODO: figure out how to add this listener
-        // static::restored(function ($instance) {
-        //     $instance->checkCooldownAndFlushAfterPersiting($instance);
-        // });
-
         static::pivotAttached(function ($instance) {
             $instance->checkCooldownAndFlushAfterPersiting($instance);
         });
