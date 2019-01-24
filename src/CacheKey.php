@@ -142,6 +142,9 @@ class CacheKey
         if (is_array(array_get($where, "values"))) {
             return implode("_", $where["values"]);
         }
+        if (is_array(array_get($where, "value"))) {
+            return reset($where["value"]);
+        }
 
         return array_get($where, "value", "");
     }
